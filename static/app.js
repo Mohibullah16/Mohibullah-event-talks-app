@@ -15,6 +15,25 @@ const errorState = document.getElementById('error-state');
 const errorMessage = document.getElementById('error-message');
 const emptyState = document.getElementById('empty-state');
 const retryBtn = document.getElementById('retry-btn');
+const themeToggle = document.getElementById('theme-toggle');
+
+// Load stored theme or default to dark
+const currentTheme = localStorage.getItem('theme') || 'dark';
+document.documentElement.setAttribute('data-theme', currentTheme);
+if (currentTheme === 'light') {
+  themeToggle.checked = true;
+}
+
+// Toggle theme event handler
+themeToggle.addEventListener('change', (e) => {
+  if (e.target.checked) {
+    document.documentElement.setAttribute('data-theme', 'light');
+    localStorage.setItem('theme', 'light');
+  } else {
+    document.documentElement.setAttribute('data-theme', 'dark');
+    localStorage.setItem('theme', 'dark');
+  }
+});
 
 // Modal Elements
 const tweetModal = document.getElementById('tweet-modal');
