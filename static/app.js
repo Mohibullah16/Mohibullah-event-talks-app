@@ -7,6 +7,7 @@ let searchQuery = '';
 // DOM Elements
 const feedContainer = document.getElementById('feed-container');
 const refreshBtn = document.getElementById('refresh-btn');
+const exportCsvBtn = document.getElementById('export-csv-btn');
 const searchInput = document.getElementById('search-input');
 const tagFilters = document.querySelectorAll('.tag-filter');
 const loadingState = document.getElementById('loading-state');
@@ -105,6 +106,11 @@ function renderReleases() {
           <span class="release-date">${item.date}</span>
         </div>
         <div class="card-actions">
+          <button class="icon-btn copy-btn" title="Copy plain text to clipboard">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+            </svg>
+          </button>
           <button class="icon-btn share-tweet" title="Tweet about this release">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
               <path d="M12.6.75h2.454l-5.36 6.142L16 15.25h-4.937l-3.867-5.07-4.425 5.07H.316l5.733-6.57L0 .75h5.063l3.495 4.633L12.601.75Zm-.86 13.028h1.36L4.323 2.145H2.865l8.875 11.633Z"/>
@@ -120,6 +126,28 @@ function renderReleases() {
       <h2 class="release-title">${item.title}</h2>
       <div class="release-body">${item.content}</div>
     `;
+
+    // Attach clipboard copying logic
+    const copyBtn = card.querySelector('.copy-btn');
+    copyBtn.addEventListener('click', async () => {
+      try {
+        const plainText = item.tweet_text;
+        await navigator.clipboard.writeText(plainText);
+        
+        // Brief visual feedback toast/change
+        const originalSVG = copyBtn.innerHTML;
+        copyBtn.innerHTML = `
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#34d399" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+        `;
+        setTimeout(() => {
+          copyBtn.innerHTML = originalSVG;
+        }, 2000);
+      } catch (err) {
+        console.error('Failed to copy text: ', err);
+      }
+    });
 
     // Attach tweet sharing logic
     const shareBtn = card.querySelector('.share-tweet');
@@ -178,9 +206,58 @@ function publishTweet() {
   closeTweetComposer();
 }
 
+// Export filtered releases to CSV file
+function exportToCSV() {
+  if (filteredReleases.length === 0) {
+    alert("No release notes found to export.");
+    return;
+  }
+
+  // Helper to escape values containing commas, quotes or newlines
+  const escapeCSV = (val) => {
+    if (val === null || val === undefined) return '';
+    let stringVal = String(val);
+    // Strip inner HTML tags for CSV readable body
+    stringVal = stringVal.replace(/<[^>]+>/g, '');
+    // Escape double quotes
+    stringVal = stringVal.replace(/"/g, '""');
+    // Wrap in quotes if it contains separator chars
+    if (stringVal.search(/("|,|\n)/g) >= 0) {
+      stringVal = `"${stringVal}"`;
+    }
+    return stringVal;
+  };
+
+  const headers = ["ID", "Title", "Date", "Category", "Link", "Details"];
+  const rows = filteredReleases.map(item => [
+    item.id,
+    item.title,
+    item.date,
+    item.category,
+    item.link,
+    item.tweet_text
+  ]);
+
+  const csvContent = [
+    headers.join(","),
+    ...rows.map(r => r.map(escapeCSV).join(","))
+  ].join("\n");
+
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.setAttribute("href", url);
+  link.setAttribute("download", `bigquery_releases_${new Date().toISOString().slice(0, 10)}.csv`);
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
 // Event Listeners
 refreshBtn.addEventListener('click', fetchReleases);
 retryBtn.addEventListener('click', fetchReleases);
+exportCsvBtn.addEventListener('click', exportToCSV);
 
 searchInput.addEventListener('input', (e) => {
   searchQuery = e.target.value.toLowerCase();
